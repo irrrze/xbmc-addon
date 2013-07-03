@@ -41,19 +41,67 @@ def get_root_list():
 	items = client.read_all_completed()
 	total = len(items)
 	for i in items:
+		xbmc.log(i['type'], xbmc.LOGERROR)
+		if not i['status_text'] == 'completed':
+			continue
 		name, file_ext = os.path.splitext(i['name'].encode('utf-8'))
-		xbmc.log(name, xbmc.LOGERROR)
-		if not is_media_file(file_ext):
-				continue
-		download_url = i['xunlei_url'].encode('utf-8')
-		li = xbmcgui.ListItem(name + file_ext)
-		if download_url:
-			u = '%s?mode=10&name=%s&url=%s' % (sys.argv[0], urllib.quote_plus(name), urllib.quote_plus(download_url))
-			xbmcplugin.addDirectoryItem(int(sys.argv[1]), u, li, False, total)
-		elif i['type'] == 'bt':
+		if i['type'] == 'bt':
+			li = xbmcgui.ListItem(name)
 			u = '%s?mode=20&name=%s&url=%s&id=%s' % (sys.argv[0], urllib.quote_plus(name), urllib.quote_plus('bt_download_url'), i['id'])
 			xbmcplugin.addDirectoryItem(int(sys.argv[1]), u, li, True, total)
+		else:
+			name, file_ext = os.path.splitext(i['name'].encode('utf-8'))
+			if not is_media_file(file_ext):
+				continue
+			if not i['xunlei_url']:
+				continue
+			download_url = i['xunlei_url'].encode('utf-8')
+			li = xbmcgui.ListItem(name + file_ext)
+			if download_url:
+				u = '%s?mode=10&name=%s&url=%s' % (sys.argv[0], urllib.quote_plus(name), urllib.quote_plus(download_url))
+				xbmcplugin.addDirectoryItem(int(sys.argv[1]), u, li, False, total)
+
 		xbmc.log(u, xbmc.LOGERROR)
+	xbmcplugin.endOfDirectory(int(sys.argv[1]))
+
+def get_category_list():
+	client = create_xunlei_client()
+	categories = client.read_categories()
+	total = len(categories.keys()) + 1
+	li = xbmcgui.ListItem('全部')
+	u = '%s?mode=80' % (sys.argv[0])
+	xbmcplugin.addDirectoryItem(int(sys.argv[1]), u, li, True, total)
+	for k in categories.keys():
+		name = k.encode('utf-8')
+		li = xbmcgui.ListItem(name)
+		u = '%s?mode=40&cat=%s' % (sys.argv[0], categories[k])
+		xbmcplugin.addDirectoryItem(int(sys.argv[1]), u, li, True, total)
+	xbmcplugin.endOfDirectory(int(sys.argv[1]))
+
+def get_task_by_category(id):
+	client = create_xunlei_client()
+	items = client.read_all_tasks_by_category_id(id)
+	total = len(items)
+	for i in items:
+		xbmc.log(i['type'], xbmc.LOGERROR)
+		if not i['status_text'] == 'completed':
+			continue
+		name, file_ext = os.path.splitext(i['name'].encode('utf-8'))
+		if i['type'] == 'bt':
+			li = xbmcgui.ListItem(name)
+			u = '%s?mode=20&name=%s&url=%s&id=%s' % (sys.argv[0], urllib.quote_plus(name), urllib.quote_plus('bt_download_url'), i['id'])
+			xbmcplugin.addDirectoryItem(int(sys.argv[1]), u, li, True, total)
+		else:
+			name, file_ext = os.path.splitext(i['name'].encode('utf-8'))
+			if not is_media_file(file_ext):
+				continue
+			if not i['xunlei_url']:
+				continue
+			download_url = i['xunlei_url'].encode('utf-8')
+			li = xbmcgui.ListItem(name + file_ext)
+			if download_url:
+				u = '%s?mode=10&name=%s&url=%s' % (sys.argv[0], urllib.quote_plus(name), urllib.quote_plus(download_url))
+				xbmcplugin.addDirectoryItem(int(sys.argv[1]), u, li, False, total)
 	xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
 def get_bt_list(id):
@@ -152,7 +200,7 @@ try:
 except:
     pass
 try:
-    cat = urllib.unquote_plus(params["cat"])
+    cat = int(urllib.unquote_plus(params["cat"]))
 except:
     pass
 try:
@@ -169,9 +217,12 @@ except:
     pass
 
 if mode == None:
-    get_root_list()
+    get_category_list()
 elif mode == 10:
     play_video(name,url)
 elif mode == 20:
 	get_bt_list(id)
-
+elif mode == 40:
+	get_task_by_category(cat)
+elif mode == 80:
+	get_root_list()
